@@ -89,6 +89,13 @@
     "lsp-install-server": "beancount-ls",
     "debugger": "Not available"
   },
+  { "name": "biome",
+    "full-name": "Biome",
+    "server-name": "biome-language-server",
+    "server-url": "https://github.com/biomejs/biome",
+    "installation": "npm install -g @biomejs/biome-language-server",
+    "installation-url": "https://biomejs.dev/guides/getting-started/"
+  },
   {
     "name": "buf",
     "full-name": "buf CLI (Beta)",
@@ -213,6 +220,15 @@
     "server-url": "https://github.com/eclipse-che4z/che-che4z-lsp-for-cobol",
     "installation-url": "https://github.com/eclipse-che4z/che-che4z-lsp-for-cobol/releases",
     "debugger": "Not relevant"
+  },
+  {
+    "name": "crates",
+    "full-name": "Crates",
+    "server-name": "crates-lsp",
+    "server-url": "https://github.com/MathiasPius/crates-lsp",
+    "installation-url": "https://github.com/MathiasPius/crates-lsp?tab=readme-ov-file#1-installing-crates-lsp",
+    "lsp-install-server": "crates-lsp",
+    "debugger": "Not available"
   },
   {
     "name": "crystal",
@@ -350,6 +366,14 @@
     "installation": "Automatic by lsp-mode",
     "lsp-install-server": "fsac",
     "debugger": "Yes (netcoredbg)"
+  },
+  {
+    "name": "fortitude",
+    "full-name": "Fortran",
+    "server-name": "fortitude",
+    "server-url": "https://github.com/PlasmaFAIR/fortitude",
+    "installation": "pip install fortitude-lint",
+    "debugger": "Not available"
   },
   {
     "name": "fortran",
@@ -1377,6 +1401,15 @@
     "server-url": "https://github.com/vuejs/language-tools",
     "installation": "npm install -g @vue/language-server",
     "lsp-install-server": "vue-semantic-server",
+    "debugger": "Not available"
+  },
+  {
+    "name": "wasm-language-tools",
+    "common-group-name": "wat",
+    "full-name": "WebAssembly",
+    "server-name": "wat_server",
+    "server-url": "https://github.com/g-plane/wasm-language-tools",
+    "installation-url": "https://wasm-language-tools.netlify.app/guide/getting-started/executable.html",
     "debugger": "Not available"
   },
   {

@@ -1,5 +1,14 @@
 * Changelog
 ** Unreleased 9.0.1
+  * Fix ~lsp-zig--zls-url~ to use the new zigtools.org url (see: [[https://github.com/emacs-lsp/lsp-mode/issues/4445][#4445]])
+  * Fix ~lsp--npm-dependency-path~ to return correct executable path and improve error message
+  * Add support for [[https://github.com/PlasmaFAIR/fortitude][Fortitude]] (Fortran)
+  * Clear diagnostics after workspace edits to prevent stale diagnostics at wrong line numbers after operations like ~lsp-organize-imports~ (see [[https://github.com/emacs-lsp/lsp-mode/issues/3888][#3888]])
+  * Add support for ~workspace/willRenameFiles~ and ~workspace/didRenameFiles~ when using ~vc-git-rename-file~.
+  * Fix documentation to show unevaluated expressions for file/directory defcustom defaults instead of machine-specific paths (see [[https://github.com/emacs-lsp/lsp-mode/issues/4924][#4924]])
+  * Fix invalid regex patterns in ~lsp-file-watch-ignored-directories~ causing crashes (see [[https://github.com/emacs-lsp/lsp-mode/issues/3439][#3439]])
+  * Fix documentation website sidebar visibility on tablet landscape screens (see [[https://github.com/emacs-lsp/lsp-mode/issues/4946][#4946]])
+  * Add ~lsp-fix-all~ command and ~lsp-fix-all-on-save~ option for ~source.fixAll~ code action support (see [[https://github.com/emacs-lsp/lsp-mode/issues/1842][#1842]])
   * Add notification handlers for Deno language server (~deno/didRefreshDenoConfigurationTree~, ~deno/didChangeDenoConfiguration~, ~deno/didUpgradeCheck~).
   * Fix "Unknown notification: semgrep/rulesRefreshed" warning in lsp-semgrep client.
   * Add ~lsp-install-server~ support for Deno LSP via npm.
@@ -64,6 +73,11 @@
   * Add ~lsp-ruby-lsp-server-command~ variable to allow overriding of the path to ~ruby-lsp~ executable
   * Add support for the ~javascript.preferences.importModuleSpecifierEnding~ and ~typescript.preferences.importModuleSpecifierEnding~ preferences.
   * Fix missing ty (a fast python language server) inlay hints when ~lsp-use-plist~ is true
+  * Add wasm-language-tools support
+  * Add ~lsp-ruff-multi-root~ variable to allow disabling multi-root option for ruff client
+  * Add support for ~~crates-lsp~~
+  * Remove outdated Ruff option and add new lint-related options
+  * Add new Nextflow client customizations
 
 ** 9.0.0
   * Add language server config for QML (Qt Modeling Language) using qmlls.
@@ -450,3 +464,4 @@
   - Removed all synchronous calls from the server startup.
   - Improved multi-folder support.
   - added backends for: Bash, C++, CSS, Dart, Elixir, Fortran, Go, Groovy, HTML, Javascript/Typescript, Javascript/Typescript, Ocaml, PHP, Python, Ruby, Rust, Vue, Flow
+  - Fix lsp-xml-bin-download-url to use correct release url as specified at [[https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases][GitHub Docs]]

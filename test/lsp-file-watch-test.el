@@ -25,6 +25,7 @@
 ;;; Code:
 (require 'lsp-mode)
 (require 'filenotify)
+(require 'test-helper)
 
 (ert-deftest lsp-file-watch--recursive ()
   :tags '(no-win)
@@ -47,7 +48,7 @@
 
     (write-region "bla" nil matching-file)
 
-    (sit-for 0.2)
+    (lsp-test-wait 0.2)
     ;; created/changed events
     (setq expected-events `((changed ,matching-file)
                             (created ,matching-file)))
@@ -59,13 +60,13 @@
 
     ;; not interested in directories
     (mkdir (concat temp-directory "dirname.ext"))
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     ;; not changed
     (should (equal expected-events events))
 
     (write-region "bla" nil nested-matching-file)
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (add-to-list 'expected-events (list 'created nested-matching-file))
     (add-to-list 'expected-events (list 'changed nested-matching-file))
@@ -78,7 +79,7 @@
       (mkdir nested-dir2)
       (write-region "bla" nil nested-matching-file2)
 
-      (sit-for 0.3)
+      (lsp-test-wait 0.3)
 
       (add-to-list 'expected-events (list 'created nested-matching-file2))
 
@@ -87,7 +88,7 @@
 
       (add-to-list 'expected-events (list 'changed nested-matching-file2))
 
-      (sit-for 0.3)
+      (lsp-test-wait 0.3)
       (should (equal expected-events events)))
 
     (should (equal expected-events events))
@@ -95,7 +96,7 @@
     ;; delete directory
     (delete-directory nested-dir t)
 
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
     (add-to-list 'expected-events (list 'deleted nested-matching-file))
     (add-to-list 'expected-events (list 'deleted nested-dir))
 
@@ -106,7 +107,7 @@
     ;; create directory and then create a file
     ;; no updates after change
     (write-region "bla1" nil matching-file)
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (should (equal expected-events events))))
 
@@ -141,7 +142,7 @@
                  lsp-file-watch-ignored-directories))
 
     (write-region "bla" nil matching-file)
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (add-to-list 'expected-events (list 'created matching-file))
     (add-to-list 'expected-events (list 'changed matching-file))
@@ -240,10 +241,51 @@
                  ignored-directories))
 
     (write-region "bla" nil nested-matching-file)
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (should (null events))
     (lsp-kill-watch watch)))
+
+(ert-deftest lsp-file-watch--invalid-regex-handling ()
+  "Test that invalid regex patterns are handled gracefully (issue #3439)."
+  ;; Clear warning cache for clean test
+  (clrhash lsp--warned-invalid-regexps)
+  ;; Test with valid patterns - should match
+  (should (equal "[/\\\\]\\.git\\'"
+                 (lsp--string-match-any '("[/\\\\]\\.git\\'") "/project/.git")))
+  (should (equal "[/\\\\]__pycache__\\'"
+                 (lsp--string-match-any '("[/\\\\]__pycache__\\'") "/project/__pycache__")))
+  ;; Test with no match
+  (should-not (lsp--string-match-any '("[/\\\\]\\.git\\'") "/project/src"))
+  ;; Test with invalid regex - should return nil and not signal error
+  ;; Use unclosed bracket which is invalid in ALL Emacs versions (28, 29, 30+)
+  (should-not (lsp--string-match-any '("[/\\\\][unclosed") "/project/__pycache__"))
+  ;; Test that valid patterns still work when mixed with invalid ones
+  (should (equal "[/\\\\]\\.git\\'"
+                 (lsp--string-match-any '("[invalid-unclosed"
+                                          "[/\\\\]\\.git\\'")
+                                        "/project/.git")))
+  ;; Edge case: empty list
+  (should-not (lsp--string-match-any '() "/project/.git"))
+  ;; Edge case: empty string to match against
+  (should-not (lsp--string-match-any '("[/\\\\]\\.git\\'") ""))
+  ;; Edge case: all invalid patterns (unclosed brackets - invalid in all versions)
+  (should-not (lsp--string-match-any '("[bad1" "[bad2")
+                                     "/project/.git")))
+
+(ert-deftest lsp-file-watch--invalid-regex-warning-cache ()
+  "Test that invalid regex warnings are only shown once per pattern."
+  ;; Clear warning cache
+  (clrhash lsp--warned-invalid-regexps)
+  ;; First call should cache the invalid pattern
+  ;; Use unclosed bracket which is invalid in ALL Emacs versions
+  (should-not (lsp--string-match-any '("[cached-unclosed") "/test"))
+  (should (gethash "[cached-unclosed" lsp--warned-invalid-regexps))
+  ;; Verify cache prevents repeated warnings (pattern is already cached)
+  (let ((cache-size (hash-table-count lsp--warned-invalid-regexps)))
+    (lsp--string-match-any '("[cached-unclosed") "/test2")
+    ;; Cache size should not increase for same pattern
+    (should (= cache-size (hash-table-count lsp--warned-invalid-regexps)))))
 
 (ert-deftest lsp-file-watch--adding-watches ()
   :tags '(no-win)
@@ -265,7 +307,7 @@
                  ignored-directories))
 
     (write-region "bla" nil nested-matching-file)
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (add-to-list 'expected-events (list 'created nested-matching-file))
     (add-to-list 'expected-events (list 'changed nested-matching-file))
@@ -319,7 +361,7 @@
 
     (delete-file matching-file-1)
 
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (advice-remove 'lsp-notify 'lsp-notify-collect)
 
@@ -362,7 +404,7 @@
 
     (f-write-text "some-text" 'utf-8 matching-file)
 
-    (sit-for 0.3)
+    (lsp-test-wait 0.3)
 
     (advice-remove 'lsp-notify 'lsp-notify-collect)
 

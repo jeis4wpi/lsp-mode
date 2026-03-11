@@ -56,6 +56,7 @@
 (require 'xref)
 (require 'minibuffer)
 (require 'help-mode)
+(require 'vc-git)
 (require 'lsp-protocol)
 
 (defgroup lsp-mode nil
@@ -174,26 +175,28 @@ As defined by the Language Server Protocol 3.16."
 
 (defcustom lsp-client-packages
   '( ccls lsp-actionscript lsp-ada lsp-angular lsp-ansible lsp-asm lsp-astro
-     lsp-autotools lsp-awk lsp-bash lsp-beancount lsp-bufls lsp-clangd
-     lsp-clojure lsp-cmake lsp-cobol lsp-credo lsp-crystal lsp-csharp lsp-c3 lsp-css
-     lsp-copilot lsp-cucumber lsp-cypher lsp-d lsp-dart lsp-dhall lsp-docker
-     lsp-dockerfile lsp-earthly lsp-elixir lsp-elm lsp-emmet lsp-erlang
-     lsp-eslint lsp-fortran lsp-futhark lsp-fsharp lsp-gdscript lsp-gleam
-     lsp-glsl lsp-go lsp-golangci-lint lsp-grammarly lsp-graphql lsp-groovy
-     lsp-hack lsp-haskell lsp-haxe lsp-idris lsp-java lsp-javascript lsp-just lsp-jq
-     lsp-json lsp-kotlin lsp-kubernetes-helm lsp-latex lsp-lisp lsp-ltex
-     lsp-ltex-plus lsp-lua lsp-fennel lsp-magik lsp-markdown lsp-marksman
-     lsp-matlab lsp-mdx lsp-meson lsp-metals lsp-mint lsp-mojo lsp-move lsp-mssql
-     lsp-nextflow lsp-nginx lsp-nim lsp-nix lsp-nushell lsp-ocaml lsp-odin lsp-openscad
-     lsp-pascal lsp-perl lsp-perlnavigator lsp-php lsp-pls lsp-postgres
-     lsp-purescript lsp-pwsh lsp-pyls lsp-pylsp lsp-pyright lsp-python-ms lsp-python-ty
-     lsp-qml lsp-r lsp-racket lsp-remark lsp-rf lsp-roc lsp-ron lsp-roslyn lsp-rubocop
-     lsp-ruby-lsp lsp-ruby-syntax-tree lsp-ruff lsp-rust lsp-semgrep lsp-shader
+     lsp-autotools lsp-awk lsp-bash lsp-beancount lsp-biome lsp-bufls lsp-clangd
+     lsp-clojure lsp-cmake lsp-cobol lsp-credo lsp-crystal lsp-csharp lsp-c3
+     lsp-css lsp-copilot lsp-crates lsp-cucumber lsp-cypher lsp-d lsp-dart
+     lsp-dhall lsp-docker lsp-dockerfile lsp-earthly lsp-elixir lsp-elm lsp-emmet
+     lsp-erlang lsp-eslint lsp-fortitude lsp-fortran lsp-futhark lsp-fsharp lsp-gdscript
+     lsp-gleam lsp-glsl lsp-go lsp-golangci-lint lsp-grammarly lsp-graphql
+     lsp-groovy lsp-hack lsp-haskell lsp-haxe lsp-idris lsp-java lsp-javascript
+     lsp-just lsp-jq lsp-json lsp-kotlin lsp-kubernetes-helm lsp-latex lsp-lisp
+     lsp-ltex lsp-ltex-plus lsp-lua lsp-fennel lsp-magik lsp-markdown
+     lsp-marksman lsp-matlab lsp-mdx lsp-meson lsp-metals lsp-mint lsp-mojo
+     lsp-move lsp-mssql lsp-nextflow lsp-nginx lsp-nim lsp-nix lsp-nushell
+     lsp-ocaml lsp-odin lsp-openscad lsp-pascal lsp-perl lsp-perlnavigator
+     lsp-php lsp-pls lsp-postgres lsp-purescript lsp-pwsh lsp-pyls lsp-pylsp
+     lsp-pyright lsp-python-ms lsp-python-ty lsp-qml lsp-r lsp-racket lsp-remark
+     lsp-rf lsp-roc lsp-ron lsp-roslyn lsp-rubocop lsp-ruby-lsp
+     lsp-ruby-syntax-tree lsp-ruff lsp-rust lsp-semgrep lsp-shader
      lsp-solargraph lsp-solidity lsp-sonarlint lsp-sorbet lsp-sourcekit
      lsp-sql lsp-sqls lsp-steep lsp-svelte lsp-tailwindcss lsp-terraform
-     lsp-tex lsp-tilt lsp-toml lsp-toml-tombi lsp-trunk lsp-ts-query lsp-ttcn3 lsp-typeprof
-     lsp-typespec lsp-typst lsp-typos lsp-v lsp-vala lsp-verilog lsp-vetur lsp-vhdl lsp-vimscript
-     lsp-volar lsp-wgsl lsp-xml lsp-yaml lsp-yang lsp-zig)
+     lsp-tex lsp-tilt lsp-toml lsp-toml-tombi lsp-trunk lsp-ts-query lsp-ttcn3
+     lsp-typeprof lsp-typespec lsp-typst lsp-typos lsp-v lsp-vala lsp-verilog
+     lsp-vetur lsp-vhdl lsp-vimscript lsp-volar lsp-wat lsp-wgsl lsp-xml
+     lsp-yaml lsp-yang lsp-zig)
   "List of the clients to be automatically required."
   :group 'lsp-mode
   :type '(repeat symbol))
@@ -594,6 +597,21 @@ if their major-mode is in the list."
   :type '(repeat symbol)
   :group 'lsp-mode)
 
+(defcustom lsp-fix-all-on-save nil
+  "If non-nil run `source.fixAll' code action on save.
+This applies all auto-fixable issues before saving.
+To only apply to specific modes see `lsp-fix-all-on-save-list'."
+  :type 'boolean
+  :safe #'booleanp
+  :local t
+  :group 'lsp-mode)
+
+(defcustom lsp-fix-all-on-save-list '()
+  "If the list is empty apply fixAll to all buffers on save.
+Else only apply fixAll if their major-mode is in the list."
+  :type '(repeat symbol)
+  :group 'lsp-mode)
+
 (defcustom lsp-after-apply-edits-hook nil
   "Hooks to run when text edit is applied.
 It contains the operation source."
@@ -821,6 +839,7 @@ Changes take effect only when a new session is started."
     ("\\.tsx$" . "typescriptreact")
     ("\\.ttcn3$" . "ttcn3")
     ("\\.vue$" . "vue")
+    ("\\.wat$" . "wat")
     ("\\.xml$" . "xml")
     ("\\ya?ml$" . "yaml")
     ("^PKGBUILD$" . "shellscript")
@@ -858,6 +877,7 @@ Changes take effect only when a new session is started."
     (clojure-ts-mode . "clojure")
     (clojure-ts-clojurec-mode . "clojure")
     (clojure-ts-clojurescript-mode . "clojurescript")
+    (edn-mode . "clojure")
     (java-mode . "java")
     (java-ts-mode . "java")
     (jdee-mode . "java")
@@ -925,6 +945,8 @@ Changes take effect only when a new session is started."
     (fsharp-mode . "fsharp")
     (reason-mode . "reason")
     (caml-mode . "ocaml")
+    (neocaml-mode . "ocaml")
+    (neocaml-interface-mode . "ocaml")
     (tuareg-mode . "ocaml")
     (futhark-mode . "futhark")
     (swift-mode . "swift")
@@ -1011,6 +1033,7 @@ Changes take effect only when a new session is started."
     (glsl-mode . "glsl")
     (shader-mode . "shaderlab")
     (wgsl-mode . "wgsl")
+    (wat-mode . "wat")
     (jq-mode . "jq")
     (jq-ts-mode . "jq")
     (protobuf-mode . "protobuf")
@@ -1141,7 +1164,8 @@ must be used for handling a particular message.")
 (defcustom lsp-file-watch-threshold 1000
   "Show warning if the files to watch are more than.
 Set to nil to disable the warning."
-  :type 'number
+  :type '(choice (const :tag "No warning" nil)
+                 (integer :tag "Number of files"))
   :group 'lsp-mode)
 ;;;###autoload(put 'lsp-file-watch-threshold 'safe-local-variable (lambda (i) (or (numberp i) (not i))))
 
@@ -1840,6 +1864,9 @@ etc."
          (widen)
          (save-excursion ,@form)))))
 
+;; Forward-declare; actual `defvar-local' is in the "Position encoding" section.
+(defvar lsp--move-to-column-function)
+
 ;; from http://emacs.stackexchange.com/questions/8082/how-to-get-buffer-position-given-line-number-and-column-number
 (defun lsp--line-character-to-point (line character)
   "Return the point for character CHARACTER on line LINE."
@@ -1848,13 +1875,7 @@ etc."
         (lsp-save-restriction-and-excursion
           (goto-char (point-min))
           (forward-line line)
-          ;; server may send character position beyond the current line and we
-          ;; should fallback to line end.
-          (-let [line-end (line-end-position)]
-            (if (> character (- line-end (point)))
-                line-end
-              (forward-char character)
-              (point)))))))
+          (funcall lsp--move-to-column-function character)))))
 
 (lsp-defun lsp--position-to-point ((&Position :line :character))
   "Convert `Position' object in PARAMS to a point."
@@ -1938,19 +1959,11 @@ On other systems, returns path without change."
 
 (defun lsp--uri-to-path-1 (uri)
   "Convert URI to a file path."
-  (let* ((url (url-generic-parse-url (url-unhex-string uri)))
+  (let* ((url (url-generic-parse-url uri))
          (type (url-type url))
-         (target (url-target url))
          (file
-          (concat (decode-coding-string (url-filename url)
-                                        (or locale-coding-system 'utf-8))
-                  (when (and target
-                             (not (s-match
-                                   (rx "#" (group (1+ num)) (or "," "#")
-                                       (group (1+ num))
-                                       string-end)
-                                   uri)))
-                    (concat "#" target))))
+          (decode-coding-string (url-unhex-string (url-filename url))
+                                        (or locale-coding-system 'utf-8)))
          (file-name (if (and type (not (string= type "file")))
                         (if-let* ((handler (lsp--get-uri-handler type)))
                             (funcall handler uri)
@@ -1996,9 +2009,23 @@ This set of allowed chars is enough for hexifying local file paths.")
       (funcall uri-fn path)
     (lsp--path-to-uri-1 path)))
 
+(defvar lsp--warned-invalid-regexps (make-hash-table :test 'equal)
+  "Hash table of invalid regexps that have already been warned about.
+Used to prevent repeated warnings for the same invalid pattern.")
+
 (defun lsp--string-match-any (regex-list str)
-  "Return the first regex, if any, within REGEX-LIST matching STR."
-  (--first (string-match it str) regex-list))
+  "Return the first regex, if any, within REGEX-LIST matching STR.
+Returns the matching regex string on success, nil on no match or invalid regex.
+Invalid regex patterns are logged as warnings (once per pattern) and skipped."
+  (--first (condition-case err
+               (string-match it str)
+             (invalid-regexp
+              (unless (gethash it lsp--warned-invalid-regexps)
+                (puthash it t lsp--warned-invalid-regexps)
+                (lsp-warn "Invalid regexp in watch pattern: %s (parsing %s)"
+                          (error-message-string err) it))
+              nil))
+           regex-list))
 
 (cl-defstruct lsp-watch
   (descriptors (make-hash-table :test 'equal))
@@ -3778,7 +3805,7 @@ disappearing, unset all the variables related to it."
 (defun lsp--client-capabilities (&optional custom-capabilities)
   "Return the client capabilities appending CUSTOM-CAPABILITIES."
   (append
-   `((general . ((positionEncodings . ["utf-32", "utf-16"])))
+   `((general . ((positionEncodings . ["utf-32" "utf-8" "utf-16"])))
      (workspace . ((workspaceEdit . ((documentChanges . t)
                                      (resourceOperations . ["create" "rename" "delete"])))
                    (applyEdit . t)
@@ -3907,7 +3934,7 @@ disappearing, unset all the variables related to it."
       (when (cl-loop for capability in (lsp--workspace-registered-server-capabilities workspace)
                      thereis (and (equal (lsp--registered-capability-method capability)
                                          "workspace/didChangeWatchedFiles")
-                                  (cl-loop for fs-watcher in (lsp:did-change-watched-files-registration-options-watchers
+                                  (cl-loop for fs-watcher across (lsp:did-change-watched-files-registration-options-watchers
                                                               (lsp--registered-capability-options capability))
                                            thereis (let ((glob-pattern (lsp:file-system-watcher-glob-pattern fs-watcher))
                                                          (kind? (lsp:file-system-watcher-kind? fs-watcher))
@@ -4409,12 +4436,87 @@ yet."
 (defun lsp--cur-line (&optional point)
   (1- (line-number-at-pos point)))
 
+;;
+;; Position encoding
+;;
+;; LSP uses UTF-16 code units for character offsets by default.  Emacs uses
+;; codepoints (effectively UTF-32).  Characters in the supplementary planes
+;; (U+10000–U+10FFFF, e.g. emoji) require 2 UTF-16 code units but only 1
+;; Emacs character position.  The functions below handle the conversion.
+;; With LSP 3.17 positionEncoding negotiation, servers may use UTF-32 or
+;; UTF-8 instead, avoiding the conversion entirely.
+
+(defvar-local lsp--position-column-function #'lsp--utf-32-column
+  "Function to compute the column offset for the current point.
+Set per-buffer based on the negotiated position encoding.")
+
+(defvar-local lsp--move-to-column-function #'lsp--move-to-utf-32-column
+  "Function to move point to a given column offset.
+Set per-buffer based on the negotiated position encoding.")
+
+(defun lsp--utf-16-column ()
+  "Return the current column as a UTF-16 code unit offset from line beginning."
+  (/ (- (length (encode-coding-region (line-beginning-position)
+                                      (point) 'utf-16 t))
+        2)                              ; subtract 2-byte BOM
+     2))                                ; convert bytes to code units
+
+(defun lsp--move-to-utf-16-column (column)
+  "Move point to COLUMN expressed as UTF-16 code unit offset from line beginning."
+  (let ((bol (line-beginning-position))
+        (eol (line-end-position))
+        (goal column))
+    (goto-char bol)
+    (while (and (> goal 0) (< (point) eol))
+      (when (<= #x10000 (char-after) #x10ffff)
+        (setq goal (1- goal)))           ; supplementary char = 2 UTF-16 units
+      (forward-char 1)
+      (setq goal (1- goal)))
+    (point)))
+
+(defun lsp--utf-32-column ()
+  "Return the current column as a codepoint offset from line beginning."
+  (- (point) (line-beginning-position)))
+
+(defun lsp--move-to-utf-32-column (column)
+  "Move point to COLUMN expressed as codepoint offset from line beginning."
+  (goto-char (min (+ (line-beginning-position) column) (line-end-position)))
+  (point))
+
+(defun lsp--utf-8-column ()
+  "Return the current column as a UTF-8 byte offset from line beginning."
+  (- (position-bytes (point)) (position-bytes (line-beginning-position))))
+
+(defun lsp--move-to-utf-8-column (column)
+  "Move point to COLUMN expressed as UTF-8 byte offset from line beginning."
+  (let ((bol (line-beginning-position))
+        (eol (line-end-position))
+        (goal-byte (+ (position-bytes (line-beginning-position)) column)))
+    (goto-char bol)
+    (while (and (< (position-bytes (point)) goal-byte) (< (point) eol))
+      (forward-char 1))
+    (point)))
+
+(defun lsp--set-position-encoding (encoding)
+  "Set position encoding functions for the current buffer.
+ENCODING is a string: \"utf-16\", \"utf-32\", or \"utf-8\"."
+  (pcase encoding
+    ("utf-16"
+     (setq-local lsp--position-column-function #'lsp--utf-16-column)
+     (setq-local lsp--move-to-column-function #'lsp--move-to-utf-16-column))
+    ("utf-8"
+     (setq-local lsp--position-column-function #'lsp--utf-8-column)
+     (setq-local lsp--move-to-column-function #'lsp--move-to-utf-8-column))
+    (_
+     (setq-local lsp--position-column-function #'lsp--utf-32-column)
+     (setq-local lsp--move-to-column-function #'lsp--move-to-utf-32-column))))
+
 (defun lsp--cur-position ()
   "Make a Position object for the current point."
   (or (lsp-virtual-buffer-call :cur-position)
       (lsp-save-restriction-and-excursion
         (list :line (lsp--cur-line)
-              :character (- (point) (line-beginning-position))))))
+              :character (funcall lsp--position-column-function)))))
 
 (defun lsp--point-to-position (point)
   "Convert POINT to Position."
@@ -5247,6 +5349,18 @@ if it's closing the last buffer in the workspace."
         (lsp-format-buffer)
       (when (member major-mode lsp-format-buffer-on-save-list)
         (lsp-format-buffer)))))
+
+(defun lsp--fix-all-before-save ()
+  "Run `source.fixAll' code action before save if configured.
+This is controlled by `lsp-fix-all-on-save' and `lsp-fix-all-on-save-list'."
+  (with-demoted-errors "Error in 'lsp--fix-all-before-save': %S"
+    (when (and lsp-fix-all-on-save
+               (lsp-workspaces)
+               (or (not lsp-fix-all-on-save-list)
+                   (member major-mode lsp-fix-all-on-save-list)))
+      (condition-case nil
+          (lsp-execute-code-action-by-kind-buffer-wide "source.fixAll")
+        (lsp-no-code-actions nil)))))
 
 (defun lsp--on-auto-save ()
   "Handler for auto-save."
@@ -6129,10 +6243,17 @@ It will show up only if current point has signature help."
            (lsp-workspaces))
    (gethash command lsp--default-action-handlers)))
 
-(defun lsp--text-document-code-action-params (&optional kind)
-  "Code action params."
-  (let* ((diagnostics (lsp-cur-possition-diagnostics))
-         (range (cond ((use-region-p)
+(defun lsp--text-document-code-action-params (&optional kind buffer-wide)
+  "Code action params.
+When BUFFER-WIDE is non-nil, use entire buffer range and all diagnostics.
+This is useful for source actions like `source.fixAll' that operate on the
+whole buffer rather than the current position."
+  (let* ((diagnostics (if buffer-wide
+                          (apply #'vector (lsp--get-buffer-diagnostics))
+                        (lsp-cur-possition-diagnostics)))
+         (range (cond (buffer-wide
+                       (lsp--region-to-range (point-min) (point-max)))
+                      ((use-region-p)
                        (lsp--region-to-range (region-beginning) (region-end)))
                       (diagnostics
                        (let* ((start (point)) (end (point)))
@@ -6367,6 +6488,35 @@ execute a CODE-ACTION-KIND action."
             (lsp--info ,(format "%s action not available" code-action-kind))))))))
 
 (lsp-make-interactive-code-action organize-imports "source.organizeImports")
+
+(defun lsp-code-actions-buffer-wide (&optional kind)
+  "Retrieve the code actions for the entire buffer.
+This is useful for source actions like `source.fixAll' that operate on the
+whole buffer rather than the current position.
+It will filter by KIND if non nil."
+  (lsp-request "textDocument/codeAction" (lsp--text-document-code-action-params kind t)))
+
+(defun lsp-execute-code-action-by-kind-buffer-wide (command-kind)
+  "Execute code action by COMMAND-KIND for the entire buffer.
+Unlike `lsp-execute-code-action-by-kind', this function passes the entire
+buffer range and all diagnostics to the language server."
+  (if-let* ((action (->> (lsp-code-actions-buffer-wide command-kind)
+                        (-filter (-lambda ((&CodeAction :kind?))
+                                   (and kind? (s-prefix? command-kind kind?))))
+                        lsp--select-action)))
+      (lsp-execute-code-action action)
+    (signal 'lsp-no-code-actions '(command-kind))))
+
+(defun lsp-fix-all ()
+  "Perform the source.fixAll code action for the entire buffer, if available.
+This action fixes all auto-fixable issues in the buffer."
+  (interactive)
+  (let ((lsp-auto-execute-action t))
+    (condition-case nil
+        (lsp-execute-code-action-by-kind-buffer-wide "source.fixAll")
+      (lsp-no-code-actions
+       (when (called-interactively-p 'any)
+         (lsp--info "source.fixAll action not available"))))))
 
 (defun lsp--make-document-range-formatting-params (start end)
   "Make DocumentRangeFormattingParams for selected region."
@@ -6686,9 +6836,9 @@ relied upon."
                                     :newName ,newname))))
     (lsp--apply-workspace-edit edits 'rename)))
 
-(defun lsp--on-rename-file (old-func old-name new-name &optional ok-if-already-exists?)
-  "Advice around function `rename-file'.
-Applies OLD-FUNC with OLD-NAME, NEW-NAME and OK-IF-ALREADY-EXISTS?.
+(defun lsp--on-rename-file (old-func old-name new-name &rest args)
+  "Advice around file renaming functions such as `rename-file'.
+Applies OLD-FUNC with OLD-NAME, NEW-NAME and remaining ARGS.
 
 This advice sends workspace/willRenameFiles before renaming file
 to check if server wants to apply any workspaceEdits after renamed."
@@ -6701,13 +6851,14 @@ to check if server wants to apply any workspaceEdits after renamed."
         (if-let* ((edits (lsp-request "workspace/willRenameFiles" params)))
             (progn
               (lsp--apply-workspace-edit edits 'rename-file)
-              (funcall old-func old-name new-name ok-if-already-exists?)
+              (apply old-func old-name new-name args)
               (when (lsp--send-did-rename-files-p)
                 (lsp-notify "workspace/didRenameFiles" params)))
-          (funcall old-func old-name new-name ok-if-already-exists?)))
-    (funcall old-func old-name new-name ok-if-already-exists?)))
+          (apply old-func old-name new-name args)))
+    (apply old-func old-name new-name args)))
 
 (advice-add 'rename-file :around #'lsp--on-rename-file)
+(advice-add 'vc-git-rename-file :around #'lsp--on-rename-file)
 
 (defcustom lsp-xref-force-references nil
   "If non-nil threat everything as references(e. g. jump if only one item.)"
@@ -6970,24 +7121,31 @@ If nil, and `lsp-debounce-full-sync-notifications' is non-nil,
 
 (lsp-defun lsp--build-workspace-configuration-response ((&ConfigurationParams :items))
   "Get section configuration.
+If a section in the request is empty, all configuration items are returned.
 PARAMS are the `workspace/configuration' request params"
   (->> items
        (-map (-lambda ((&ConfigurationItem :section?))
-               (-let* ((path-parts (split-string section? "\\."))
-                       (path-without-last (s-join "." (-slice path-parts 0 -1)))
-                       (path-parts-len (length path-parts)))
-                 (cond
-                  ((<= path-parts-len 1)
-                   (ht-get (lsp-configuration-section section?)
-                           (car-safe path-parts)
-                           (ht-create)))
-                  ((> path-parts-len 1)
-                   (when-let* ((section (lsp-configuration-section path-without-last))
-                              (keys path-parts))
-                     (while (and keys section)
-                       (setf section (ht-get section (pop keys))))
-                     section))))))
+               (if section?
+                   (lsp--section-workspace-configuration section?)
+                 (lsp--default-workspace-configuration))))
        (apply #'vector)))
+
+(defun lsp--section-workspace-configuration (section-from-request)
+  "Get the configuration for the SECTION from the `workspace/configuration' request."
+  (-let* ((path-parts (split-string section-from-request "\\."))
+          (path-without-last (s-join "." (-slice path-parts 0 -1)))
+          (path-parts-len (length path-parts)))
+    (cond
+     ((<= path-parts-len 1)
+      (ht-get (lsp-configuration-section section-from-request)
+              (car-safe path-parts)
+              (ht-create)))
+     ((> path-parts-len 1)
+      (when-let* ((section (lsp-configuration-section path-without-last))
+                  (keys path-parts))
+        (while (and keys section)
+          (setf section (ht-get section (pop keys))))
+        section)))))
 
 (defun lsp--ms-since (timestamp)
   "Integer number of milliseconds since TIMESTAMP.  Fractions discarded."
@@ -8049,6 +8207,14 @@ SESSION is the active session."
          (setf (lsp--workspace-server-capabilities workspace) capabilities
                (lsp--workspace-status workspace) 'initialized)
 
+         ;; Apply the negotiated position encoding to all workspace buffers.
+         (when-let* ((encoding (lsp:server-capabilities-position-encoding? capabilities)))
+           (mapc (lambda (buffer)
+                   (when (lsp-buffer-live-p buffer)
+                     (lsp-with-current-buffer buffer
+                       (lsp--set-position-encoding encoding))))
+                 (lsp--workspace-buffers workspace)))
+
          (with-lsp-workspace workspace
            (lsp-notify "initialized" lsp--empty-ht))
 
@@ -8444,15 +8610,15 @@ nil."
 ;; https://docs.npmjs.com/files/folders#executables
 (cl-defun lsp--npm-dependency-path (&key package path &allow-other-keys)
   "Return npm dependency PATH for PACKAGE."
-  (let ((path (executable-find
-               (f-join lsp-server-install-dir "npm" package
-                       (cond ((eq system-type 'windows-nt) "")
-                             (t "bin"))
-                       path)
-               t)))
-    (unless (and path (f-exists? path))
+  (let ((path* (executable-find
+                (f-join lsp-server-install-dir "npm" package
+                        (cond ((eq system-type 'windows-nt) "")
+                              (t "bin"))
+                        path)
+                t)))
+    (unless path*
       (error "The package %s is not installed.  Unable to find %s" package path))
-    path))
+    path*))
 
 (cl-defun lsp--npm-dependency-install (callback error-callback &key package version &allow-other-keys)
   (if-let* ((npm-binary (executable-find "npm")))
@@ -8905,6 +9071,28 @@ TBL - a hash table, PATHS is the path to the nested VALUE."
              lsp-client-settings)
     ret))
 
+(defun lsp--default-workspace-configuration ()
+  "Get all defined settings."
+  (let ((ret (ht-create)))
+    (maphash (-lambda (path (variable boolean?))
+               ;; Trap any error to be safe, as in an older version of lsp-mode,
+               ;; when resolving the variable lsp-volar-get-typescript-tsdk-path,
+               ;; the following error was signaled:
+               ;; :package "typescript" :path "tsserver"
+               ;;  "The package typescript is not installed.  Unable to find nil"
+               (condition-case nil
+                   (let* ((symbol-value (-> variable
+                                            lsp-resolve-value
+                                            lsp-resolve-value))
+                          (value (if (and boolean? (not symbol-value))
+                                     :json-false
+                                   symbol-value)))
+                     (when (or boolean? value)
+                       (lsp-ht-set ret (s-split "\\." path) value)))
+                 (error nil)))
+             lsp-client-settings)
+    ret))
+
 
 (defun lsp--start-connection (session client project-root)
   "Initiates connection created from CLIENT for PROJECT-ROOT.
@@ -9223,6 +9411,9 @@ IGNORE-MULTI-FOLDER to ignore multi folder server."
   (if (eq 'initialized (lsp--workspace-status workspace))
       ;; when workspace is initialized just call document did open.
       (progn
+        (when-let* ((encoding (lsp:server-capabilities-position-encoding?
+                               (lsp--workspace-server-capabilities workspace))))
+          (lsp--set-position-encoding encoding))
         (with-lsp-workspace workspace
           (when-let* ((before-document-open-fn (-> workspace
                                                   lsp--workspace-client
@@ -9470,6 +9661,7 @@ Errors if there are none."
   (lsp-managed-mode -1)
   (lsp-mode -1)
   (remove-hook 'before-save-hook #'lsp--format-buffer-before-save t)
+  (remove-hook 'before-save-hook #'lsp--fix-all-before-save t)
   (setq lsp--buffer-workspaces nil)
   (lsp--info "Disconnected"))
 
@@ -9518,7 +9710,10 @@ argument ask the user to select which language server to start."
                         (lsp--try-project-root-workspaces (equal arg '(4))
                                                           (and arg (not (equal arg 1))))))
           (lsp-mode 1)
+          ;; Register before-save hooks. Emacs runs hooks in reverse order,
+          ;; so fix-all runs before format (fix issues first, then format).
           (add-hook 'before-save-hook #'lsp--format-buffer-before-save nil t)
+          (add-hook 'before-save-hook #'lsp--fix-all-before-save nil t)
           (when lsp-auto-configure (lsp--auto-configure))
           (setq lsp-buffer-uri (lsp--buffer-uri))
           (lsp--info "Connected to %s."

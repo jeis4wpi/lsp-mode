@@ -411,6 +411,36 @@ line 3 words here and here
                                        "line 1 unique word broming + common"
                                        "                   ^^^^^^^         "))))))
 
+(ert-deftest lsp-mock-server-clears-diags-after-workspace-edit ()
+  "Test ensuring diagnostics are cleared after workspace edits.
+
+Diagnostics should be cleared after workspace edits (like organize
+imports) to prevent stale diagnostics from appearing at wrong line
+numbers. This test verifies the fix for issue #3888."
+  (lsp-mock-run-with-mock-server
+   ;; There are no diagnostics at first
+   (should (eq (length (gethash lsp-test-sample-file (lsp-diagnostics t))) 0))
+
+   ;; Server found diagnostic
+   (lsp-test-command-send-diags lsp-test-sample-file (buffer-string) "broming")
+   (lsp-test-sync-wait (progn (should (lsp-workspaces))
+                              (gethash lsp-test-sample-file (lsp-diagnostics t))))
+   (should (eq (length (gethash lsp-test-sample-file (lsp-diagnostics t))) 1))
+
+   ;; Simulate workspace edit (like organize imports) by running the hook
+   (run-hook-with-args 'lsp-after-apply-edits-hook 'code-action)
+
+   ;; After the hook runs, diagnostics should be cleared
+   (should (null (gethash lsp-test-sample-file (lsp-diagnostics t))))
+
+   ;; Server sent new diagnostics
+   (lsp-test-command-send-diags lsp-test-sample-file (buffer-string) "broming")
+   (lsp-test-sync-wait (progn (should (lsp-workspaces))
+                              (gethash lsp-test-sample-file (lsp-diagnostics t))))
+
+   ;; Now the diagnostic is available again
+   (should (eq (length (gethash lsp-test-sample-file (lsp-diagnostics t))) 1))))
+
 (defun lsp-test-xref-loc-to-range (xref-loc)
   "Convert XREF-LOC to a range p-list.
 
@@ -863,5 +893,80 @@ line 3 words here and here
                                (overlay-get (car lenses) 'after-string)))
        (goto-char (overlay-start (car lenses)))
        (should (equal (line-number-at-pos) (+ line 1)))))))
+
+(ert-deftest lsp-mock-server-fix-all-applies-buffer-wide ()
+  "Test ensuring that lsp-fix-all applies source.fixAll action buffer-wide."
+  (lsp-mock-run-with-mock-server
+   (lsp-test-schedule-response
+    "textDocument/codeAction"
+    (vconcat (list `(:title "Fix all issues"
+                     :kind "source.fixAll"
+                     :isPreferred t
+                     :edit
+                     (:changes
+                      ((,(concat "file://" lsp-test-sample-file)
+                        .
+                        ,(lsp-test-make-edits
+                          "Line 0 unique word fegam and common
+line 1 unique word broming + common
+line 2 unique word normalw common here
+line 3 words here and here
+"))))))))
+   (lsp-fix-all)
+   (should (equal (buffer-string)
+                  "Line 0 unique word fegam and common
+line 1 unique word broming + common
+line 2 unique word normalw common here
+line 3 words here and here
+"))))
+
+(ert-deftest lsp-mock-server-fix-all-no-action-available ()
+  "Test ensuring that lsp-fix-all handles missing source.fixAll gracefully."
+  (lsp-mock-run-with-mock-server
+   (lsp-test-schedule-response
+    "textDocument/codeAction"
+    [])  ; No code actions available
+   ;; Should not error when called non-interactively
+   (lsp-fix-all)
+   ;; Buffer should remain unchanged
+   (should (equal (buffer-string)
+                  "Line 0 unique word fegam and common
+line 1 unique word broming + common
+line 2 unique word normalw common here
+line 3 words here and here
+"))))
+
+(ert-deftest lsp-mock-server-execute-code-action-by-kind-buffer-wide ()
+  "Test ensuring that lsp-execute-code-action-by-kind-buffer-wide works correctly."
+  (lsp-mock-run-with-mock-server
+   (lsp-test-schedule-response
+    "textDocument/codeAction"
+    (vconcat (list `(:title "Organize imports"
+                     :kind "source.organizeImports"
+                     :edit
+                     (:changes
+                      ((,(concat "file://" lsp-test-sample-file)
+                        .
+                        ,(lsp-test-make-edits
+                          "#### 0 unique word fegam and common
+line 1 unique word broming + common
+line 2 unique word normalw common here
+line 3 words here and here
+"))))))))
+   (lsp-execute-code-action-by-kind-buffer-wide "source.organizeImports")
+   (should (equal (buffer-string)
+                  " 0 unique word fegam and common
+line 1 unique word broming + common
+line 2 unique word normalw common here
+line 3 words here and here
+"))))
+
+(ert-deftest lsp-mock-server-execute-code-action-by-kind-buffer-wide-no-match ()
+  "Test that lsp-execute-code-action-by-kind-buffer-wide signals error when no action."
+  (lsp-mock-run-with-mock-server
+   (lsp-test-schedule-response
+    "textDocument/codeAction"
+    [])  ; No code actions available
+   (should-error (lsp-execute-code-action-by-kind-buffer-wide "source.fixAll"))))
 
 ;;; lsp-mock-server-test.el ends here

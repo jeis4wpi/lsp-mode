@@ -263,6 +263,16 @@ If there are more arguments expected after the line and column numbers."
   (interactive)
   (lsp-clojure--refactoring-call "backward-barf"))
 
+(defun lsp-clojure-kill-sexpr ()
+  "Apply kill sexpr refactoring at point."
+  (interactive)
+  (lsp-clojure--refactoring-call "kill-sexp"))
+
+(defun lsp-clojure-raise-sexpr ()
+  "Apply raise refactoring at point."
+  (interactive)
+  (lsp-clojure--refactoring-call "raise-sexp"))
+
 (defun lsp-clojure-move-form (dest-filename)
   "Apply move-form refactoring at point to DEST-FILENAME."
   (interactive
@@ -572,7 +582,8 @@ Focus on it if IGNORE-FOCUS? is nil."
                    #'lsp-clojure--build-command
                    #'lsp-clojure--build-command)
   :major-modes '(clojure-mode clojurec-mode clojurescript-mode
-                 clojure-ts-mode clojure-ts-clojurec-mode clojure-ts-clojurescript-mode)
+                 clojure-ts-mode clojure-ts-clojurec-mode clojure-ts-clojurescript-mode
+                 edn-mode)
   :library-folders-fn (lambda (_workspace) lsp-clojure-library-dirs)
   :uri-handlers (lsp-ht ("jar" #'lsp-clojure--file-in-jar))
   :action-handlers (lsp-ht ("code-lens-references" #'lsp-clojure--show-references))
